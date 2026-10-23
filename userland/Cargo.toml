@@ -1,0 +1,8 @@
+[package]
+name = "kaustavos-ui"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kaustav Nath"]
+description = "KaustavOS system UI: splash, personal threads, chooser, themed shells, and persistence engine"
+
+[dependencies]

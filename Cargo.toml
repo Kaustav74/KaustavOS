@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "userland",
+    "kernel",
+]
+resolver = "2"

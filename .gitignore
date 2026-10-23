@@ -1,5 +1,10 @@
 /target
+**/target
 **/*.rs.bk
 Cargo.lock
 *.iso
 *.img
+build/initramfs
+build/iso_root
+build/*.cpio.gz
+kaustav_data/
