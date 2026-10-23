@@ -1,0 +1,14 @@
+[package]
+name = "kaustavos-kernel"
+version = "0.1.0"
+description = "KaustavOS bare-metal kernel skeleton"
+edition = "2021"
+
+[dependencies]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+lto = true
