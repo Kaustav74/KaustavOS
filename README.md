@@ -1,45 +1,35 @@
 # KaustavOS
 
-**KaustavOS** is a lightweight, high-assurance operating system project aiming for maximum security and minimal trusted computing base (TCB).
+Lightweight educational kernel project focused on security principles (minimal TCB, isolation, Rust memory safety).
 
-## Vision
-- Extremely small privileged kernel (microkernel style, inspired by seL4).
-- Capability-based access control and strong isolation.
-- Memory-safe core written in Rust (no_std bare metal).
-- Boots from a USB pendrive (64 GB, USB 2.0 compatible).
-- Custom startup experience:
-  1. Shows **KaustavOS** branding.
-  2. Briefly displays personal threads (e.g., School Journeys, CareGuardian, etc.) then fades.
-  3. Presents a chooser: "Use like which OS: Windows, macOS or Linux".
-  4. After selection, provides a consistent interface matching the chosen style while keeping the secure KaustavOS foundation underneath.
-- Persistent data storage on the USB.
+## Simple Goal
+A bootable starting point that can grow into a USB-bootable system with:
+- KaustavOS splash screen
+- Brief display of personal threads (School Journeys, CareGuardian, etc.)
+- Choice of desktop style: Windows-like / macOS-like / Linux-like
+- Persistent storage on the USB drive
 
-## Architecture Principles (Safest Practical)
-- **Minimal TCB**: Only essential mechanisms in privileged mode (scheduling, IPC, memory primitives, capability system).
-- Drivers, filesystems, networking, and GUI run as isolated user-space servers.
-- Formal verification goals where feasible (start with rigorous design and Rust safety).
-- Principle of least privilege.
-- Hardware MMU + IOMMU isolation.
+**This is not a full OS yet.** It is a clean, simple skeleton you can extend. Full Windows/macOS/Linux compatibility interfaces require years of work and cannot be created by copying proprietary software (that would be illegal).
 
-This is the closest achievable to "almost unhackable" for software-based attacks: common kernel exploits are minimized by design and language safety.
+## How to Start Simply
+1. Install Rust (nightly recommended for bare-metal).
+2. Install QEMU for testing.
+3. Use an open-source bootloader like **Limine** (see links below).
+4. Build the kernel and boot it in QEMU first.
+5. Once stable, create a USB image.
 
-## Current Status
-This repository contains the **initial skeleton**. A full production OS with complete GUI compatibility layers for Windows/macOS/Linux interfaces is a multi-year effort. This project provides the secure foundation and boot structure to build upon.
+### Recommended Learning Path (Open Source)
+- Philipp Oppermann's "Writing an OS in Rust" series: https://os.phil-opp.com/
+- Limine Rust templates (public GitHub repos)
+- OSDev Wiki
 
-## Building & Running (Planned)
-- Target: x86_64 bare metal (later ARM/RISC-V).
-- Bootloader: Limine or GRUB for USB live boot.
-- Build with Rust nightly + cargo.
-- Test in QEMU first, then write to USB.
+## Current Files
+- `kernel/` — Rust no_std skeleton with entry point and comments for the boot sequence.
+- `docs/` — Architecture and USB boot notes.
 
-See `docs/ARCHITECTURE.md` for detailed design notes.
+## Next Easy Steps
+- Add serial or VGA text output so it prints "KaustavOS".
+- Implement a simple menu for the OS mode chooser.
+- Integrate Limine for real bootable images.
 
-## Roadmap
-1. Minimal bootable kernel that prints "KaustavOS".
-2. Custom splash + thread preview sequence.
-3. Basic capability system and IPC.
-4. USB persistence layer.
-5. Desktop mode chooser and themed UI shells.
-6. User-space services and isolation.
-
-Created by Kaustav Nath (Kaustav74).
+Created by Kaustav Nath.

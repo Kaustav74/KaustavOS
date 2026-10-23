@@ -3,24 +3,33 @@
 
 use core::panic::PanicInfo;
 
-/// Entry point of the KaustavOS kernel.
-/// In a real build this would be linked with a bootloader (Limine/GRUB)
-/// and run in QEMU or on real hardware from USB.
+/// Simple KaustavOS kernel entry.
+/// This is a minimal placeholder. Replace the loop with real hardware init
+/// (serial, VGA, framebuffer) using public educational tutorials.
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Placeholder boot sequence simulation
-    // In the full system this would drive a framebuffer or serial console
+    // === Boot Sequence (to be implemented) ===
+    // 1. Initialize early console (serial or VGA text mode)
+    // 2. Clear screen and print:
+    //    ====================================
+    //              KaustavOS
+    //    ====================================
+    //
+    // 3. Briefly show threads then clear:
+    //    School Journeys
+    //    CareGuardian
+    //    (add more of your own)
+    //
+    // 4. Show simple chooser menu:
+    //    Use like which OS?
+    //    [1] Windows style
+    //    [2] macOS style
+    //    [3] Linux style
+    //
+    // 5. Based on choice, load a themed shell (future work)
+    //    and enable persistence on USB.
 
-    // 1. Show KaustavOS branding
-    // (would print or render "KaustavOS")
-
-    // 2. Show personal threads that then disappear
-    // School Journeys, CareGuardian, etc.
-
-    // 3. Present OS mode chooser: Windows / macOS / Linux
-
-    // 4. Launch the selected interface shell with persistence
-
+    // For now: infinite loop (kernel stays alive)
     loop {}
 }
 

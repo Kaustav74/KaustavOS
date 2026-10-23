@@ -1,7 +1,7 @@
 [package]
 name = "kaustavos-kernel"
 version = "0.1.0"
-description = "KaustavOS bare-metal kernel skeleton"
+description = "Simple KaustavOS bare-metal kernel skeleton"
 edition = "2021"
 
 [dependencies]
