@@ -33,12 +33,12 @@ echo "=== Creating Initramfs Root Directory ==="
 rm -rf "$INITRAMFS_DIR"
 mkdir -p "$INITRAMFS_DIR"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,data,mnt/usb,tmp,etc}
 
-# Install BusyBox
+# Install BusyBox (ensure static or properly linked)
 echo "=== Installing BusyBox ==="
 BUSYBOX_BIN=$(which busybox 2>/dev/null || ls /bin/busybox /usr/bin/busybox 2>/dev/null | head -n 1)
 if [ -z "$BUSYBOX_BIN" ] || [ ! -x "$BUSYBOX_BIN" ]; then
     echo "ERROR: busybox executable not found on system!"
-    echo "Please install busybox (e.g. 'sudo apt install -y busybox' or 'busybox-static')."
+    echo "Please install busybox (e.g. 'sudo apt install -y busybox-static')."
     exit 1
 fi
 echo "Using BusyBox: $BUSYBOX_BIN"
@@ -56,23 +56,36 @@ echo "=== Installing KaustavOS Rust UI ==="
 cp "$UI_BIN" "$INITRAMFS_DIR/bin/kaustavos-ui"
 chmod 755 "$INITRAMFS_DIR/bin/kaustavos-ui"
 
-# Copy required dynamic libraries
+# Copy required dynamic libraries for ALL binaries in initramfs
 echo "=== Copying Dynamic Libraries ==="
 mkdir -p "$INITRAMFS_DIR/usr/lib/x86_64-linux-gnu"
+mkdir -p "$INITRAMFS_DIR/lib/x86_64-linux-gnu"
 mkdir -p "$INITRAMFS_DIR/lib64"
 
-# Use ldd to find dependencies of kaustavos-ui
-for lib in $(ldd "$INITRAMFS_DIR/bin/kaustavos-ui" 2>/dev/null | grep -o '/lib[^ ]*' | sort -u); do
-    if [ -f "$lib" ]; then
-        dir=$(dirname "$lib")
+for bin in "$INITRAMFS_DIR/bin/busybox" "$INITRAMFS_DIR/bin/kaustavos-ui"; do
+    for lib in $(ldd "$bin" 2>/dev/null | grep -o '/lib[^ ]*' | sort -u); do
+        if [ -f "$lib" ]; then
+            dir=$(dirname "$lib")
+            mkdir -p "$INITRAMFS_DIR$dir"
+            cp -L "$lib" "$INITRAMFS_DIR$lib"
+        fi
+    done
+done
+
+# Copy additional essential runtime libraries if present
+for extra_lib in /lib/x86_64-linux-gnu/libresolv.so.2 /usr/lib/x86_64-linux-gnu/libresolv.so.2 /lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1; do
+    if [ -f "$extra_lib" ]; then
+        dir=$(dirname "$extra_lib")
         mkdir -p "$INITRAMFS_DIR$dir"
-        cp -L "$lib" "$INITRAMFS_DIR$lib"
+        cp -L "$extra_lib" "$INITRAMFS_DIR$extra_lib"
     fi
 done
 
-# Ensure ld-linux and libc are in standard paths
+# Ensure ld-linux is in both standard paths
 if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
     cp -L /lib64/ld-linux-x86-64.so.2 "$INITRAMFS_DIR/lib64/"
+    mkdir -p "$INITRAMFS_DIR/lib"
+    cp -L /lib64/ld-linux-x86-64.so.2 "$INITRAMFS_DIR/lib/"
 fi
 
 # Copy essential filesystem kernel modules (ext4, vfat, fat, nls)
@@ -81,7 +94,7 @@ if [ -d "/lib/modules/$KVER" ]; then
     echo "=== Copying Kernel Filesystem Modules ($KVER) ==="
     mkdir -p "$INITRAMFS_DIR/lib/modules/$KVER/kernel/fs"
     cp -r /lib/modules/$KVER/kernel/fs/{ext4,fat,nls} "$INITRAMFS_DIR/lib/modules/$KVER/kernel/fs/" 2>/dev/null || true
-    # Copy jbd2 and mbcache if separate
+    # Copy jbd2 and mbcache
     find /lib/modules/$KVER/kernel -name "jbd2.ko*" -o -name "mbcache.ko*" | while read -r mod; do
         target_dir="$INITRAMFS_DIR$(dirname "$mod")"
         mkdir -p "$target_dir"
@@ -179,12 +192,12 @@ fi
 # Ensure storage directories
 mkdir -p /data/notes /data/threads /data/config
 
-# 4. Launch KaustavOS Themed Desktop & Shell
+# 4. Launch KaustavOS Themed Desktop & Shell (with rescue loop so init NEVER panics)
 while true; do
-    /bin/kaustavos-ui </dev/console >/dev/console 2>&1
+    /bin/kaustavos-ui </dev/console >/dev/console 2>&1 || true
     sync
     echo ""
-    echo "KaustavOS session exited. Press Enter to restart, or type 'poweroff'."
+    echo "KaustavOS session finished. Press Enter to restart, or type 'poweroff'."
     read -r ans </dev/console
     if [ "$ans" = "poweroff" ] || [ "$ans" = "shutdown" ]; then
         sync
@@ -192,6 +205,9 @@ while true; do
     elif [ "$ans" = "reboot" ]; then
         sync
         reboot -f
+    elif [ "$ans" = "sh" ] || [ "$ans" = "bash" ]; then
+        echo "Launching emergency rescue shell..."
+        /bin/sh </dev/console >/dev/console 2>&1 || true
     fi
 done
 EOF
