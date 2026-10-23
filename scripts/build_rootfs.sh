@@ -31,7 +31,7 @@ echo "Using UI binary: $UI_BIN"
 
 echo "=== Creating Initramfs Root Directory ==="
 rm -rf "$INITRAMFS_DIR"
-mkdir -p "$INITRAMFS_DIR"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,data,mnt,tmp,etc}
+mkdir -p "$INITRAMFS_DIR"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,data,mnt/usb,tmp,etc}
 
 # Install BusyBox
 echo "=== Installing BusyBox ==="
@@ -47,7 +47,7 @@ chmod 755 "$INITRAMFS_DIR/bin/busybox"
 
 # Create BusyBox Symlinks
 cd "$INITRAMFS_DIR/bin"
-for cmd in sh ls cat echo mount umount mkdir rm cp mv sync reboot poweroff sleep clear stty blkid grep awk sed dmesg ps kill uname vi; do
+for cmd in sh ls cat echo mount umount mkdir rm cp mv sync reboot poweroff sleep clear stty blkid grep awk sed dmesg ps kill uname vi modprobe insmod lsmod; do
     ln -sf busybox "$cmd"
 done
 
@@ -73,6 +73,21 @@ done
 # Ensure ld-linux and libc are in standard paths
 if [ -f /lib64/ld-linux-x86-64.so.2 ]; then
     cp -L /lib64/ld-linux-x86-64.so.2 "$INITRAMFS_DIR/lib64/"
+fi
+
+# Copy essential filesystem kernel modules (ext4, vfat, fat, nls)
+KVER="7.1.5+kali-amd64"
+if [ -d "/lib/modules/$KVER" ]; then
+    echo "=== Copying Kernel Filesystem Modules ($KVER) ==="
+    mkdir -p "$INITRAMFS_DIR/lib/modules/$KVER/kernel/fs"
+    cp -r /lib/modules/$KVER/kernel/fs/{ext4,fat,nls} "$INITRAMFS_DIR/lib/modules/$KVER/kernel/fs/" 2>/dev/null || true
+    # Copy jbd2 and mbcache if separate
+    find /lib/modules/$KVER/kernel -name "jbd2.ko*" -o -name "mbcache.ko*" | while read -r mod; do
+        target_dir="$INITRAMFS_DIR$(dirname "$mod")"
+        mkdir -p "$target_dir"
+        cp "$mod" "$target_dir/"
+    done
+    depmod -b "$INITRAMFS_DIR" "$KVER" 2>/dev/null || true
 fi
 
 # Create /etc/passwd and /etc/group
@@ -103,6 +118,10 @@ mount -t devpts none /dev/pts 2>/dev/null || true
 # 2. Suppress excessive kernel dmesg prints during startup
 echo 0 > /proc/sys/kernel/printk 2>/dev/null || true
 
+# Load filesystem drivers
+modprobe ext4 2>/dev/null || true
+modprobe vfat 2>/dev/null || true
+
 # 3. Persistent USB Storage Detection
 mkdir -p /data
 PERSISTENT_FOUND=0
@@ -132,7 +151,26 @@ if [ "$PERSISTENT_FOUND" -eq 0 ]; then
     done
 fi
 
-# C. Fallback: If no dedicated USB persistent partition exists yet, use memory overlay
+# C. Check if the boot USB partition itself is writable (e.g. Large FAT32 formatted by Rufus)
+if [ "$PERSISTENT_FOUND" -eq 0 ]; then
+    for dev in $(blkid -t TYPE=vfat -o device 2>/dev/null; blkid -t TYPE=exfat -o device 2>/dev/null); do
+        if [ -b "$dev" ]; then
+            mkdir -p /mnt/usb
+            if mount -o rw "$dev" /mnt/usb 2>/dev/null; then
+                if [ -f /mnt/usb/limine.conf ] || [ -f /mnt/usb/boot/vmlinuz ] || [ -d /mnt/usb/EFI/BOOT ]; then
+                    mkdir -p /mnt/usb/kaustav_data
+                    mount --bind /mnt/usb/kaustav_data /data
+                    echo "[KaustavOS Storage] Mounted persistent USB FAT32 volume $dev at /data"
+                    PERSISTENT_FOUND=1
+                    break
+                fi
+                umount /mnt/usb 2>/dev/null || true
+            fi
+        fi
+    done
+fi
+
+# D. Fallback: If no dedicated or writable USB persistent storage exists yet, use memory overlay
 if [ "$PERSISTENT_FOUND" -eq 0 ]; then
     mount -t tmpfs -o size=256M tmpfs /data
     echo "[KaustavOS Storage] Using resilient volatile /data layer (No physical persistence partition found)"
