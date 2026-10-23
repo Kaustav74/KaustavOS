@@ -7,16 +7,24 @@ INITRAMFS_DIR="$BUILD_DIR/initramfs"
 
 echo "=== Building KaustavOS Userspace (Rust) ==="
 cd "$REPO_ROOT"
-cargo build --release -p kaustavos-ui
 
-# Find compiled binary (works whether built in workspace root or subfolder)
+# Try compiling if cargo is available, but allow falling back to prebuilt binary
+if command -v cargo >/dev/null 2>&1; then
+    echo "Running cargo build --release -p kaustavos-ui..."
+    cargo build --release -p kaustavos-ui || true
+fi
+
+# Find compiled binary (checks workspace root target, subfolder target, or prebuilt fallback)
 UI_BIN=""
 if [ -f "$REPO_ROOT/target/release/kaustavos-ui" ]; then
     UI_BIN="$REPO_ROOT/target/release/kaustavos-ui"
 elif [ -f "$REPO_ROOT/userland/target/release/kaustavos-ui" ]; then
     UI_BIN="$REPO_ROOT/userland/target/release/kaustavos-ui"
+elif [ -f "$REPO_ROOT/prebuilt/kaustavos-ui" ]; then
+    UI_BIN="$REPO_ROOT/prebuilt/kaustavos-ui"
 else
     echo "ERROR: Could not locate compiled kaustavos-ui binary!"
+    echo "Please build with 'cargo build --release' or ensure prebuilt/kaustavos-ui exists."
     exit 1
 fi
 echo "Using UI binary: $UI_BIN"
@@ -30,6 +38,7 @@ echo "=== Installing BusyBox ==="
 BUSYBOX_BIN=$(which busybox 2>/dev/null || ls /bin/busybox /usr/bin/busybox 2>/dev/null | head -n 1)
 if [ -z "$BUSYBOX_BIN" ] || [ ! -x "$BUSYBOX_BIN" ]; then
     echo "ERROR: busybox executable not found on system!"
+    echo "Please install busybox (e.g. 'sudo apt install -y busybox' or 'busybox-static')."
     exit 1
 fi
 echo "Using BusyBox: $BUSYBOX_BIN"
@@ -53,7 +62,7 @@ mkdir -p "$INITRAMFS_DIR/usr/lib/x86_64-linux-gnu"
 mkdir -p "$INITRAMFS_DIR/lib64"
 
 # Use ldd to find dependencies of kaustavos-ui
-for lib in $(ldd "$INITRAMFS_DIR/bin/kaustavos-ui" | grep -o '/lib[^ ]*' | sort -u); do
+for lib in $(ldd "$INITRAMFS_DIR/bin/kaustavos-ui" 2>/dev/null | grep -o '/lib[^ ]*' | sort -u); do
     if [ -f "$lib" ]; then
         dir=$(dirname "$lib")
         mkdir -p "$INITRAMFS_DIR$dir"
