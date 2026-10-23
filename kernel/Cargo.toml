@@ -5,10 +5,3 @@ description = "Simple KaustavOS bare-metal kernel skeleton"
 edition = "2021"
 
 [dependencies]
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
-lto = true

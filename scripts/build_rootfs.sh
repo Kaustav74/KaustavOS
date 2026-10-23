@@ -6,8 +6,20 @@ BUILD_DIR="$REPO_ROOT/build"
 INITRAMFS_DIR="$BUILD_DIR/initramfs"
 
 echo "=== Building KaustavOS Userspace (Rust) ==="
-cd "$REPO_ROOT/userland"
-cargo build --release
+cd "$REPO_ROOT"
+cargo build --release -p kaustavos-ui
+
+# Find compiled binary (works whether built in workspace root or subfolder)
+UI_BIN=""
+if [ -f "$REPO_ROOT/target/release/kaustavos-ui" ]; then
+    UI_BIN="$REPO_ROOT/target/release/kaustavos-ui"
+elif [ -f "$REPO_ROOT/userland/target/release/kaustavos-ui" ]; then
+    UI_BIN="$REPO_ROOT/userland/target/release/kaustavos-ui"
+else
+    echo "ERROR: Could not locate compiled kaustavos-ui binary!"
+    exit 1
+fi
+echo "Using UI binary: $UI_BIN"
 
 echo "=== Creating Initramfs Root Directory ==="
 rm -rf "$INITRAMFS_DIR"
@@ -15,7 +27,13 @@ mkdir -p "$INITRAMFS_DIR"/{bin,sbin,usr/bin,usr/sbin,lib,lib64,proc,sys,dev,data
 
 # Install BusyBox
 echo "=== Installing BusyBox ==="
-cp /bin/busybox "$INITRAMFS_DIR/bin/busybox"
+BUSYBOX_BIN=$(which busybox 2>/dev/null || ls /bin/busybox /usr/bin/busybox 2>/dev/null | head -n 1)
+if [ -z "$BUSYBOX_BIN" ] || [ ! -x "$BUSYBOX_BIN" ]; then
+    echo "ERROR: busybox executable not found on system!"
+    exit 1
+fi
+echo "Using BusyBox: $BUSYBOX_BIN"
+cp "$BUSYBOX_BIN" "$INITRAMFS_DIR/bin/busybox"
 chmod 755 "$INITRAMFS_DIR/bin/busybox"
 
 # Create BusyBox Symlinks
@@ -26,7 +44,7 @@ done
 
 # Copy KaustavOS Rust Engine
 echo "=== Installing KaustavOS Rust UI ==="
-cp "$REPO_ROOT/userland/target/release/kaustavos-ui" "$INITRAMFS_DIR/bin/kaustavos-ui"
+cp "$UI_BIN" "$INITRAMFS_DIR/bin/kaustavos-ui"
 chmod 755 "$INITRAMFS_DIR/bin/kaustavos-ui"
 
 # Copy required dynamic libraries
